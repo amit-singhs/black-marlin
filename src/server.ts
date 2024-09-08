@@ -1,10 +1,10 @@
 import fastify from 'fastify';
-import exampleRoutes from './routes/example';
+import emailRoutes from './routes/email';
 
 const server = fastify({ logger: true });
 
 // Register routes
-server.register(exampleRoutes);
+server.register(emailRoutes);
 
 // Start the server
 const start = async () => {
