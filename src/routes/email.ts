@@ -2,13 +2,14 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import supabase from "../supabaseClient";
 import apiKeyMiddleware from "../middlewares/apiKeyAuthMiddleware";
 
-// Define the expected body type
+import { generateToken } from "../utils/jwtUtils"; // Import JWT utilities
+
 interface EmailRequestBody {
-  email?: string; 
+  email?: string;
 }
 
 const emailRoutes = async (fastify: FastifyInstance) => {
-  fastify.addHook("preHandler", apiKeyMiddleware); // Register the middleware
+  fastify.addHook("preHandler", apiKeyMiddleware);
 
   fastify.post(
     "/email",
@@ -18,30 +19,26 @@ const emailRoutes = async (fastify: FastifyInstance) => {
     ) => {
       const { email } = request.body;
 
-     
       if (!email) {
         return reply.status(400).send({ error: "Email is required" });
       }
 
-      // Insert the email and a hardcoded token into the Supabase table
-      const { data, error } = await supabase
-        .from("email_verification") 
-        .insert([
-          { email: email, token: "abcdABCDXYZ1234567890" }, // Hardcoded token
-        ])
-        .select(); 
+      // Generate a JWT token
+      const token = generateToken({ email }, "1h"); // Token expires in 1 hour
 
-      // Handle any errors from Supabase
+      // Insert the email and generated token into the Supabase table
+      const { data, error } = await supabase
+        .from("email_verification")
+        .insert([{ email: email, token: token }])
+        .select();
+
       if (error) {
-        return reply
-          .status(500)
-          .send({
-            error: "Error inserting email into Supabase",
-            details: error.message,
-          });
+        return reply.status(500).send({
+          error: "Error inserting email into Supabase",
+          details: error.message,
+        });
       }
 
-      // Return the inserted data in the response
       return { status: "success", data };
     }
   );
