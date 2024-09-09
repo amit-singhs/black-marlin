@@ -1,7 +1,7 @@
 import fastify from 'fastify';
 import emailRoutes from './routes/email';
 
-const server = fastify({ logger: true });
+const server = fastify({ logger: true ,maxParamLength: 500});
 
 // Register routes
 server.register(emailRoutes);

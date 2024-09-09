@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const fastify_1 = __importDefault(require("fastify"));
 const email_1 = __importDefault(require("./routes/email"));
-const server = (0, fastify_1.default)({ logger: true });
+const server = (0, fastify_1.default)({ logger: true, maxParamLength: 500 });
 // Register routes
 server.register(email_1.default);
 // Start the server

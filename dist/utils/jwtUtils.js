@@ -8,7 +8,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const getSecret = () => {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-        throw new Error('JWT_SECRET is missing. Please add JWT_SECRET in the .env file.');
+        throw new Error('JWT_SECRET is missing. Please add JWT_SECRET in the environment variable.');
     }
     return secret;
 };
