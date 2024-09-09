@@ -20,8 +20,6 @@ const emailRoutes = async (fastify) => {
             .select("*")
             .eq("email", email)
             .single();
-        console.log("Data related to query triggered for checking if email exists ***************** : ", existingData);
-        console.log("ERROR OBJECT related to query triggered for checking if email exists XXXXXXXXXXXXXXXXXXXXXX : ", fetchError);
         if (fetchError && fetchError.code !== "PGRST116") {
             // 'PGRST116' means no rows found
             return reply
@@ -120,7 +118,6 @@ const emailRoutes = async (fastify) => {
     });
     fastify.get("/verify-email/:email/:token", async (request, reply) => {
         const { email, token } = request.params;
-        console.log("From the verify-email route, email and token are 5%%%%%%%%%%%%% : ", email, token);
         // Check if email exists
         const { data: existingData, error: fetchError } = await supabaseClient_1.default
             .from("email_verification")
