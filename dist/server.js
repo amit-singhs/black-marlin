@@ -11,8 +11,23 @@ server.register(email_1.default);
 // Start the server
 const start = async () => {
     try {
+        // Bind to a specific port
         await server.listen({ port: 3000 });
-        console.log(`Server is running at http://localhost:3000`);
+        // Obtain the address and port from the server
+        const address = server.server.address();
+        if (address && typeof address === 'object') {
+            const { address: host, port } = address;
+            // Handle both IPv4 and IPv6 cases
+            const hostName = host === '::' ? 'localhost' : host;
+            const url = `http://${hostName}:${port}`;
+            const rocketIcon = '🚀'; // Rocket icon
+            server.log.info(`Server is running at ${url} ${rocketIcon}`);
+            console.log(`Server is running at ${url} ${rocketIcon}`);
+        }
+        else {
+            // Handle cases where address might not be an object
+            console.log('Server address is not available.');
+        }
     }
     catch (err) {
         server.log.error(err);

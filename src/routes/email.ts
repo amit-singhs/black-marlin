@@ -9,10 +9,6 @@ interface EmailRequestBody {
   email?: string;
 }
 
-interface SendVerificationRequestBody {
-  email?: string;
-}
-
 const emailRoutes = async (fastify: FastifyInstance) => {
   fastify.addHook("preHandler", apiKeyMiddleware);
 
@@ -107,7 +103,7 @@ const emailRoutes = async (fastify: FastifyInstance) => {
   fastify.post(
     "/send-verification",
     async (
-      request: FastifyRequest<{ Body: SendVerificationRequestBody }>,
+      request: FastifyRequest<{ Body: EmailRequestBody }>,
       reply: FastifyReply
     ) => {
       const { email } = request.body;
