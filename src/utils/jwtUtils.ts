@@ -15,7 +15,14 @@ export const generateToken = (payload: object, expiresIn: string | number = '1h'
 };
 
 // Function to verify JWT
-export const verifyToken = (token: string) => {
-  const secret = getSecret();
-  return jwt.verify(token, secret);
+export const verifyToken = (token: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    const secret = getSecret();   
+    jwt.verify(token, secret, (err, decoded) => {
+      if (err) {
+        return reject(err);
+      }
+      resolve(decoded);
+    });
+  });
 };
