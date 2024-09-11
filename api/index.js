@@ -14,9 +14,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const fastify_1 = __importDefault(require("fastify"));
 const cors_1 = __importDefault(require("@fastify/cors"));
-const email_1 = __importDefault(require("./routes/email"));
+const email_1 = __importDefault(require("./routes/email")); // Adjust the path as necessary
 const server = (0, fastify_1.default)({ logger: true, maxParamLength: 500 });
-// Register the CORS plugin with options
+// CORS setup
 server.register(cors_1.default, {
     origin: (origin, cb) => {
         const allowedOrigins = [
@@ -24,10 +24,10 @@ server.register(cors_1.default, {
             process.env.FRONTEND_URL,
         ];
         if (allowedOrigins.includes(origin)) {
-            cb(null, true); // Allow the request
+            cb(null, true);
         }
         else {
-            cb(new Error("Not allowed by CORS"), false); // Reject the request
+            cb(new Error("Not allowed by CORS"), false);
         }
     },
     methods: ["GET", "POST"],
@@ -36,27 +36,17 @@ server.register(cors_1.default, {
 });
 // Register routes
 server.register(email_1.default);
-// Start the server
-const start = () => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        yield server.listen({ port: 3000 });
-        // Obtain the address and port from the server
-        const address = server.server.address();
-        if (address && typeof address === "object") {
-            const { address: host, port } = address;
-            const hostName = host === "::" ? "localhost" : host;
-            const url = `http://${hostName}:${port}`;
-            const rocketIcon = "🚀"; // Rocket icon
-            server.log.info(`Server is running at ${url} ${rocketIcon}`);
-            console.info(`Server is running at ${url} ${rocketIcon}`);
+// Export the Fastify server as a Vercel function
+exports.default = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    yield server.ready();
+    server.inject({
+        method: req.method,
+        url: req.url,
+        headers: req.headers,
+        payload: req.body,
+    }, (err, response) => {
+        if (response) {
+            res.status(response.statusCode).send(response.payload);
         }
-        else {
-            console.error("Server address is not available.");
-        }
-    }
-    catch (err) {
-        server.log.error(err);
-        process.exit(1);
-    }
+    });
 });
-start();

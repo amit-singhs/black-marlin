@@ -1,24 +1,21 @@
 import fastify from "fastify";
 import cors from "@fastify/cors";
-import emailRoutes from "./routes/email";
+import emailRoutes from "./routes/email"; // Adjust the path as necessary
 
 const server = fastify({ logger: true, maxParamLength: 500 });
 
-// Register the CORS plugin with options
+// CORS setup
 server.register(cors, {
-  origin: (
-    origin: string | undefined,
-    cb: (err: Error | null, allow: boolean) => void
-  ) => {
+  origin: (origin, cb) => {
     const allowedOrigins = [
       "http://localhost:3000",
       process.env.FRONTEND_URL,
     ];
 
     if (allowedOrigins.includes(origin)) {
-      cb(null, true); // Allow the request
+      cb(null, true);
     } else {
-      cb(new Error("Not allowed by CORS"), false); // Reject the request
+      cb(new Error("Not allowed by CORS"), false);
     }
   },
   methods: ["GET", "POST"],
@@ -29,27 +26,17 @@ server.register(cors, {
 // Register routes
 server.register(emailRoutes);
 
-// Start the server
-const start = async () => {
-  try {
-    await server.listen({ port: 3000 });
-
-    // Obtain the address and port from the server
-    const address = server.server.address();
-    if (address && typeof address === "object") {
-      const { address: host, port } = address;
-      const hostName = host === "::" ? "localhost" : host;
-      const url = `http://${hostName}:${port}`;
-      const rocketIcon = "🚀"; // Rocket icon
-      server.log.info(`Server is running at ${url} ${rocketIcon}`);
-      console.info(`Server is running at ${url} ${rocketIcon}`);
-    } else {
-      console.error("Server address is not available.");
+// Export the Fastify server as a Vercel function
+export default async (req: { method: any; url: any; headers: any; body: any; }, res: { status: (arg0: number) => { (): any; new(): any; send: { (arg0: string): void; new(): any; }; }; }) => {
+  await server.ready();
+  server.inject({
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    payload: req.body,
+  }, (err, response) => {
+    if (response) {
+      res.status(response.statusCode).send(response.payload);
     }
-  } catch (err) {
-    server.log.error(err);
-    process.exit(1);
-  }
+  });
 };
-
-start();
