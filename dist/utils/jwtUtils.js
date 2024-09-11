@@ -20,7 +20,14 @@ const generateToken = (payload, expiresIn = '1h') => {
 exports.generateToken = generateToken;
 // Function to verify JWT
 const verifyToken = (token) => {
-    const secret = getSecret();
-    return jsonwebtoken_1.default.verify(token, secret);
+    return new Promise((resolve, reject) => {
+        const secret = getSecret();
+        jsonwebtoken_1.default.verify(token, secret, (err, decoded) => {
+            if (err) {
+                return reject(err);
+            }
+            resolve(decoded);
+        });
+    });
 };
 exports.verifyToken = verifyToken;

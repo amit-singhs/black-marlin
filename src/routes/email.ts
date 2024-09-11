@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import supabase from "../supabaseClient";
 import apiKeyMiddleware from "../middlewares/apiKeyAuthMiddleware";
 import { generateToken, verifyToken } from "../utils/jwtUtils";
-import { JwtPayload } from "jsonwebtoken";
+import { JwtPayload, TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
 import { sendEmail } from "../utils/emailUtils";
 
 interface EmailRequestBody {
@@ -33,12 +33,10 @@ const emailRoutes = async (fastify: FastifyInstance) => {
 
       if (fetchError && fetchError.code !== "PGRST116") {
         // 'PGRST116' means no rows found
-        return reply
-          .status(500)
-          .send({
-            error: "Error fetching email data",
-            details: fetchError.message,
-          });
+        return reply.status(500).send({
+          error: "Error fetching email data",
+          details: fetchError.message,
+        });
       }
 
       if (fetchError && fetchError.code === "PGRST116") {
@@ -58,45 +56,38 @@ const emailRoutes = async (fastify: FastifyInstance) => {
 
         // Check if the token is expired
         try {
-          const decodedToken = verifyToken(existingData.token) as JwtPayload;
-
+          // Await the promise returned by verifyToken
+          const decodedToken: JwtPayload = await verifyToken(
+            existingData.token
+          );
+          // Check if token has an expiration time
           if (decodedToken.exp === undefined) {
             return reply
               .status(401)
               .send({ error: "Token does not have an expiration time" });
           }
 
-          if (
-            decodedToken.exp !== undefined &&
-            decodedToken.exp * 1000 < Date.now()
-          ) {
-            return reply
-              .status(401)
-              .send({
-                error: "Email was sent alreay, but the JWT token has expired",
-              });
+          // Check if the token has expired
+          if (decodedToken.exp * 1000 < Date.now()) {
+            return reply.status(401).send({
+              error: "Email was sent already, but the JWT token has expired",
+            });
           }
+
+          // If everything is okay, send success response
           return reply.send({ status: "success", data: existingData });
         } catch (error) {
-          return reply.status(401).send({ error: "Invalid token" });
+          // Handle different types of JWT errors
+          if (error instanceof TokenExpiredError) {
+            return reply.status(401).send({ error: "Token has expired" });
+          } else if (error instanceof JsonWebTokenError) {
+            return reply.status(401).send({ error: "Invalid token" });
+          } else {
+            console.error("Unexpected error: ", error);
+            return reply.status(500).send({ error: "Internal Server Error" });
+          }
         }
       }
-
-      // Generate a new token and insert it <----Why do we insert a new token from this route ?
-      /*const token = generateToken({ email }, "1h");
-      const { data, error } = await supabase
-        .from("email_verification")
-        .insert([{ email, token }])
-        .select();
-
-      if (error) {
-        return reply.status(500).send({
-          error: "Error inserting email into Supabase",
-          details: error.message,
-        });
-      }
-
-      return { status: "success", data };*/
     }
   );
 
@@ -148,7 +139,7 @@ const emailRoutes = async (fastify: FastifyInstance) => {
       }
     }
   );
-  
+
   fastify.get(
     "/verify-email/:email/:token",
     async (
@@ -156,7 +147,6 @@ const emailRoutes = async (fastify: FastifyInstance) => {
       reply: FastifyReply
     ) => {
       const { email, token } = request.params;
-
 
       // Check if email exists
       const { data: existingData, error: fetchError } = await supabase
@@ -176,7 +166,7 @@ const emailRoutes = async (fastify: FastifyInstance) => {
 
       // Check token expiration
       try {
-        const decodedToken = verifyToken(token) as JwtPayload;
+        const decodedToken = verifyToken(token) as unknown as JwtPayload;
 
         if (decodedToken.exp === undefined) {
           return reply
@@ -185,17 +175,15 @@ const emailRoutes = async (fastify: FastifyInstance) => {
         }
 
         if (decodedToken.exp * 1000 < Date.now()) {
-          return reply
-            .status(400)
-            .send({
-              error: "Token is expired, please resend verification link",
-            });
+          return reply.status(400).send({
+            error: "Token is expired, please resend verification link",
+          });
         }
 
         // Token is still valid, update 'verified' flag
-        const { data, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from("email_verification")
-          .update({verified: true })
+          .update({ verified: true })
           .eq("email", email)
           .select();
 
@@ -209,6 +197,70 @@ const emailRoutes = async (fastify: FastifyInstance) => {
       } catch (error) {
         return reply.status(401).send({ error: "Invalid token" });
       }
+    }
+  );
+
+  fastify.post(
+    "/update-token",
+    async (
+      request: FastifyRequest<{ Body: EmailRequestBody }>,
+      reply: FastifyReply
+    ) => {
+      const { email } = request.body;
+
+      if (!email) {
+        return reply.status(400).send({ error: "Email is required" });
+      }
+
+      // Fetch the row from the database for the given email
+      const { data: existingData, error: fetchError } = await supabase
+        .from("email_verification")
+        .select("*")
+        .eq("email", email)
+        .single(); // Fetch a single row
+
+      if (
+        !existingData ||
+        fetchError?.details ===
+          "JSON object requested, multiple (or no) rows returned"
+      ) {
+        // This error indicates , the email doesn't exist in the database
+        return reply
+          .status(404)
+          .send({ error: "Email not registered in the app" });
+      }
+
+      if (fetchError) {
+        return reply.status(500).send({
+          error: "Error fetching email data",
+          details: fetchError.message,
+        });
+      }
+
+      // Check if the email is verified
+      if (!existingData.verified) {
+        return reply.status(403).send({
+          error: "The email is registered on the app, but is not verified yet",
+        });
+      }
+
+      // Generate a new token
+      const token = generateToken({ email }, "1h");
+
+      // Update the token in the database
+      const { error: updateError } = await supabase
+        .from("email_verification")
+        .update({ token })
+        .eq("email", email);
+
+      if (updateError) {
+        return reply.status(500).send({
+          error: "Error updating token",
+          details: updateError.message,
+        });
+      }
+
+      return reply.send({ status: "success", data: { email, token } });
     }
   );
 };

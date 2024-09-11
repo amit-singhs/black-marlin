@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -17,7 +26,7 @@ const transporter = nodemailer_1.default.createTransport({
     }
 });
 // Function to send email
-const sendEmail = async (to, subject, text) => {
+const sendEmail = (to, subject, text) => __awaiter(void 0, void 0, void 0, function* () {
     const mailOptions = {
         from: process.env.GMAIL_USER,
         to,
@@ -25,10 +34,10 @@ const sendEmail = async (to, subject, text) => {
         text
     };
     try {
-        await transporter.sendMail(mailOptions);
+        yield transporter.sendMail(mailOptions);
     }
     catch (error) {
         throw new Error(`Failed to send email: ${error}`);
     }
-};
+});
 exports.sendEmail = sendEmail;
